@@ -134,6 +134,6 @@ def trigger_balance_history_calc():
 
 
 if __name__ == '__main__':
-    # app.run(host='0.0.0.0', port=8080)
-    result = history_calculation(user_uuid='77b5f941-14cb-4f92-88f8-d111feb41f03', item_id=7846258)
+    app.run(host='0.0.0.0', port=8080)
+    #result = history_calculation(user_uuid='77b5f941-14cb-4f92-88f8-d111feb41f03', item_id=7846258)
     # print(result)
