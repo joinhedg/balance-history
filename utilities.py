@@ -2,7 +2,6 @@ import os
 import pandas as pd
 import requests
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, text
 import secrets
 import urllib.parse
 
@@ -37,27 +36,6 @@ def load_credentials():
             'bubble_base_url': bubble_base_url,
             'api_token': api_token
             }
-
-
-def insert_into_table(df, table, envr, if_exists_):
-    engine = create_engine(
-        f"postgresql://{envr['username']}:{envr['password']}@{envr['hostname']}:{envr['port']}/{envr['database']}")
-    conn = engine.connect()
-    df.to_sql(table, engine, schema='public', if_exists=if_exists_, index=False)
-    conn.close()
-    engine.dispose()
-    print("exported")
-
-
-def import_table(table, envr):
-    engine = create_engine(
-        f"postgresql://{envr['username']}:{envr['password']}@{envr['hostname']}:{envr['port']}/{envr['database']}")
-    query = text(f'SELECT * FROM {table}')
-    conn = engine.connect()
-    dataframe = pd.read_sql(query, con=conn)
-    conn.close()
-    engine.dispose()
-    return dataframe
 
 
 def get_object_from_bubble(object_name, envr, user_uuid, item_id):
