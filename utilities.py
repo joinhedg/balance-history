@@ -79,6 +79,23 @@ def get_object_from_bubble(object_name, envr):
     return df
 
 
+def bulk_export_to_bubble(object_name, envr, body):
+    token = envr['bubble_token']
+    base_url = envr['bubble_base_url']
+    full_url = base_url + object_name + "/bulk"
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'text/plain'
+    }
+
+    response = requests.post(
+        full_url,
+        headers=headers,
+        data=body
+    )
+    return {'response': response.text}
+
+
 if __name__ == "__main__":
     from utilities import load_credentials
 

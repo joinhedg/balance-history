@@ -1,19 +1,22 @@
 import json
 
 import pandas as pd
-import pytz
+from utilities import load_credentials, get_object_from_bubble, bulk_export_to_bubble
+from flask import Flask, request, jsonify
 
-from utilities import load_credentials, insert_into_table, import_table, get_object_from_bubble
+app = Flask(__name__)
 
 
-def main():
+def history_calculation(user_uuid, item_id):
     env = load_credentials()
 
     df_account = get_object_from_bubble("bridge_account", env)
+    df_account = df_account[(df_account['user_uuid'] == user_uuid) & (df_account['item_id'] == item_id)]
     df_account.rename(columns={'id': 'account_id'}, inplace=True)
-    df_account_unique = df_account[['account_id', 'bank_id', 'currency_code', 'iban', 'is_pro', 'name', 'item_id', 'user_uuid']].drop_duplicates()
-    df_account_grouped_min_date = df_account.groupby(['item_id', 'account_id', 'user_uuid']).agg({'date': 'min'}).reset_index()
-
+    df_account_unique = df_account[
+        ['account_id', 'bank_id', 'currency_code', 'iban', 'is_pro', 'name', 'item_id', 'user_uuid']].drop_duplicates()
+    df_account_grouped_min_date = df_account.groupby(['item_id', 'account_id', 'user_uuid']).agg(
+        {'date': 'min'}).reset_index()
 
     df_transactions = get_object_from_bubble("bridge_transactions", env)
     df_transactions_grouped_min_date = df_transactions.groupby(['item_id', 'account_id', 'user_uuid']).agg(
@@ -29,15 +32,17 @@ def main():
                          suffixes=('_account_min', '_transactions_min'))
 
     merged_df = merged_df[merged_df['date_account_min'] > merged_df['date_transactions_min']]
-    merged_df = merged_df[merged_df['account_id'] == 35570743]
 
     # Initialize an empty dataframe to store the results
     results = pd.DataFrame(
         columns=['account_id', 'item_id', 'user_uuid', 'date', 'total_history_amount', 'last_balance'])
 
     for index, row in merged_df.iterrows():
-        start_date = row['date_transactions_min']
-        end_date = row['date_account_min']
+        min_transac_date = row['date_transactions_min']
+        min_account_date = row['date_account_min']
+        timestamp_3_months_prior = min_account_date - pd.DateOffset(months=3)
+        start_date = min(min_transac_date, timestamp_3_months_prior)
+        end_date = min_account_date
 
         # Generate a date range between the start and end dates
         date_range = pd.date_range(start=start_date.normalize(), end=end_date.normalize(), freq='D', tz='Europe/Paris')
@@ -53,6 +58,7 @@ def main():
         temp_df = pd.merge(temp_df, df_account_unique,
                            on=['account_id', 'item_id', 'user_uuid']
                            )
+
         def history_amount(history_date):
             # Calculate the total amount per day for the same 'account_id', 'item_id', and 'user_uuid'
             temp_df_ammout = df_transactions_grouped_sum_amount[
@@ -80,15 +86,29 @@ def main():
     results['balance'] = (results['last_balance'] - results['total_history_amount']).round(2)
     results.drop(columns=['total_history_amount', 'last_balance'], inplace=True)
     results.rename(columns={'account_id': 'id'}, inplace=True)
-    results['date'] = results['date'].dt.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+    if not results.empty:
+        results['date'] = results['date'].dt.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+        results = results.to_dict('records')
 
-    results = results.to_dict('records')
-    output_body = ""
-    for result in results:
-        output_body += json.dumps(result) + '\n'
+        output_body = ""
+        for result in results:
+            output_body += json.dumps(result) + '\n'
+        response = bulk_export_to_bubble("bridge_account", envr=env, body=output_body)
+        return response
 
-    print(output_body)
+
+@app.route('/trigger_balance_history_calc', methods=['POST'])
+def trigger_balance_history_calc():
+    # Récupérez les arguments de la requête POST
+    data = request.json
+    user_uuid = data.get('user_uuid')
+    item_id = data.get('item_id')
+
+    # Passez les arguments à la fonction
+    result = history_calculation(user_uuid=user_uuid, item_id=item_id)
+
+    return jsonify({"result": result})
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=8080)

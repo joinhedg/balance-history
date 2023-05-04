@@ -33,4 +33,4 @@ RUN echo 'export PYTHONPATH=$PYTHONPATH:/app/isin-price' >> ~/.bashrc
 # Run the command on container startup
 CMD cron && tail -f /var/log/cron.log
 #CMD ["cd /app/"]
-#CMD ["/opt/venv/bin/python3", "./main.py"]
+#CMD ["/opt/venv/bin/python3", "./app.py"]
