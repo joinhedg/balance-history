@@ -10,15 +10,6 @@ COPY . /app
 # Set the working directory /app.
 WORKDIR /app
 
-# Copy cron file to the cron.d directory
-COPY cron-script /etc/cron.d/cron-script
-# Give execution rights on the cron job
-RUN chmod 0644 /etc/cron.d/cron-script
-# Apply cron job
-RUN crontab /etc/cron.d/cron-script
-# Create the log file to be able to run tail
-RUN touch /var/log/cron.log
-
 # Run venv
 RUN python3 -m venv /opt/venv
 
@@ -31,6 +22,4 @@ RUN echo 'export PYTHONPATH=$PYTHONPATH:/app' >> ~/.bashrc
 RUN echo 'export PYTHONPATH=$PYTHONPATH:/app/isin-price' >> ~/.bashrc
 
 # Run the command on container startup
-CMD cron && tail -f /var/log/cron.log
-#CMD ["cd /app/"]
-#CMD ["/opt/venv/bin/python3", "./app.py"]
+CMD ["/opt/venv/bin/python3", "./app.py"]

@@ -60,5 +60,5 @@ jobs:
             docker stop ${{ env.REPO_NAME }}
             docker rm ${{ env.REPO_NAME }}
             docker image rm ${{ env.REPO_NAME }}
-            
-            docker compose up -d
+            docker build -t ${{ env.REPO_NAME }}
+            docker run -p 8080:8080 ${{ env.REPO_NAME }}

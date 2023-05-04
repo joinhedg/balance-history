@@ -1,16 +1,35 @@
 import json
-
 import pandas as pd
 from utilities import load_credentials, get_object_from_bubble, bulk_export_to_bubble
 from flask import Flask, request, jsonify
+from functools import wraps
 
 app = Flask(__name__)
+
+
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('Authorization')
+        if not token:
+            return jsonify({'message': 'Token is missing'}), 403
+
+        try:
+            env = load_credentials()
+            if not token == env['api_token']:
+                raise Exception("Invalid Token")
+        except:
+            return jsonify({'message': 'Token is invalid'}), 403
+
+        return f(*args, **kwargs)
+
+    return decorated
 
 
 def history_calculation(user_uuid, item_id):
     env = load_credentials()
 
-    df_account = get_object_from_bubble("bridge_account", env)
+    df_account = get_object_from_bubble("bridge_account", env, user_uuid=user_uuid, item_id=item_id)
     df_account = df_account[(df_account['user_uuid'] == user_uuid) & (df_account['item_id'] == item_id)]
     df_account.rename(columns={'id': 'account_id'}, inplace=True)
     df_account_unique = df_account[
@@ -18,7 +37,7 @@ def history_calculation(user_uuid, item_id):
     df_account_grouped_min_date = df_account.groupby(['item_id', 'account_id', 'user_uuid']).agg(
         {'date': 'min'}).reset_index()
 
-    df_transactions = get_object_from_bubble("bridge_transactions", env)
+    df_transactions = get_object_from_bubble("bridge_transactions", env, user_uuid=user_uuid, item_id=item_id)
     df_transactions_grouped_min_date = df_transactions.groupby(['item_id', 'account_id', 'user_uuid']).agg(
         {'date': 'min'}).reset_index()
 
@@ -86,7 +105,8 @@ def history_calculation(user_uuid, item_id):
     results['balance'] = (results['last_balance'] - results['total_history_amount']).round(2)
     results.drop(columns=['total_history_amount', 'last_balance'], inplace=True)
     results.rename(columns={'account_id': 'id'}, inplace=True)
-    if not results.empty:
+    test = results.empty
+    if results.empty is False:
         results['date'] = results['date'].dt.strftime('%Y-%m-%dT%H:%M:%S.000Z')
         results = results.to_dict('records')
 
@@ -95,9 +115,12 @@ def history_calculation(user_uuid, item_id):
             output_body += json.dumps(result) + '\n'
         response = bulk_export_to_bubble("bridge_account", envr=env, body=output_body)
         return response
+    else:
+        return 'everything up to date'
 
 
 @app.route('/trigger_balance_history_calc', methods=['POST'])
+@token_required
 def trigger_balance_history_calc():
     # Récupérez les arguments de la requête POST
     data = request.json
@@ -111,4 +134,6 @@ def trigger_balance_history_calc():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+    #app.run(host='0.0.0.0', port=8080)
+    result = history_calculation(user_uuid='77b5f941-14cb-4f92-88f8-d111feb41f03', item_id=7846258)
+    #print(result)

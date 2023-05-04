@@ -1,8 +1,0 @@
-version: "3"
-
-services:
-  app:
-    restart: always
-    container_name: isin-price
-    build: .
-    image: isin-price

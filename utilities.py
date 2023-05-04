@@ -3,6 +3,8 @@ import pandas as pd
 import requests
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
+import secrets
+import urllib.parse
 
 
 def load_credentials():
@@ -20,6 +22,7 @@ def load_credentials():
     eod_key = os.environ.get('EOD_KEY')
     bubble_token = os.environ.get('BUBBLE_TOKEN')
     bubble_base_url = os.environ.get('BUBBLE_BASE_URL')
+    api_token = os.environ.get('API_TOKEN')
 
     return {'username': username,
             'password': password,
@@ -31,7 +34,8 @@ def load_credentials():
             'lemon_key': lemon_key,
             'eod_key': eod_key,
             'bubble_token': bubble_token,
-            'bubble_base_url': bubble_base_url
+            'bubble_base_url': bubble_base_url,
+            'api_token': api_token
             }
 
 
@@ -56,16 +60,19 @@ def import_table(table, envr):
     return dataframe
 
 
-def get_object_from_bubble(object_name, envr):
+def get_object_from_bubble(object_name, envr, user_uuid, item_id):
     token = envr['bubble_token']
     base_url = envr['bubble_base_url']
-    full_url = base_url + object_name
+    constraints = f'?constraints=[ {{ "key": "item_id", "constraint_type": "equals", "value": "{item_id}"}}, {{"key": "user_uuid", "constraint_type": "equals", "value": "{user_uuid}"}}, {{"limit": "5000"}}]'
+    full_url = base_url + object_name + constraints
+    encoded_full_url = urllib.parse.quote(full_url, safe=':/?=[]{},')
+
     headers = {
         'Authorization': f'Bearer {token}'
     }
 
     response = requests.get(
-        full_url,
+        encoded_full_url,
         headers=headers
     ).json()
 
@@ -96,8 +103,31 @@ def bulk_export_to_bubble(object_name, envr, body):
     return {'response': response.text}
 
 
-if __name__ == "__main__":
-    from utilities import load_credentials
-
+def test_api_local():
     env = load_credentials()
-    result = get_object_from_bubble("products_details")
+
+    token = env['api_token']
+    full_url = 'http://0.0.0.0:8080/trigger_balance_history_calc'
+    headers = {
+        'Authorization': token,
+    }
+
+    response = requests.post(
+        full_url,
+        headers=headers,
+        json={
+            'user_uuid': '77b5f941-14cb-4f92-88f8-d111feb41f03',
+            'item_id': 7846258
+        }
+    ).json()
+
+    return response
+
+
+def gen_secret():
+    secret = secrets.token_hex(32)
+    return secret
+
+
+if __name__ == "__main__":
+    print(test_api_local())
