@@ -103,11 +103,19 @@ def history_calculation(user_uuid, item_id):
         results = pd.concat([results, temp_df], ignore_index=True)
 
     results['balance'] = (results['last_balance'] - results['total_history_amount']).round(2)
+    results['start_of_month'] = results['date'].apply(lambda dt: dt.replace(day=1))
+    results['end_of_month'] = results['date'] + pd.offsets.MonthEnd(0)
+    results['is_start_of_month'] = results['date'].dt.is_month_start
+    results['is_end_of_month'] = results['date'].dt.is_month_end
+
     results.drop(columns=['total_history_amount', 'last_balance'], inplace=True)
     results.rename(columns={'account_id': 'id'}, inplace=True)
+
     test = results.empty
     if results.empty is False:
         results['date'] = results['date'].dt.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+        results['start_of_month'] = results['start_of_month'].dt.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+        results['end_of_month'] = results['end_of_month'].dt.strftime('%Y-%m-%dT%H:%M:%S.000Z')
         results = results.to_dict('records')
 
         output_body = ""
@@ -134,6 +142,6 @@ def trigger_balance_history_calc():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
-    #result = history_calculation(user_uuid='77b5f941-14cb-4f92-88f8-d111feb41f03', item_id=7846258)
+    # app.run(host='0.0.0.0', port=8080)
+    result = history_calculation(user_uuid='a7972c65-5a81-4e71-812b-951bb7825d73', item_id=7859680)
     # print(result)
