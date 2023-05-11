@@ -68,7 +68,6 @@ def history_calculation(user_uuid, item_id):
 
         # Create a DataFrame with the date column
         temp_df = pd.DataFrame({'date': date_range})
-        temp_df['date'] = temp_df['date'].dt.tz_convert('UTC')
         temp_df['item_id'] = row['item_id']
         temp_df['account_id'] = row['account_id']
         temp_df['user_uuid'] = row['user_uuid']
@@ -103,10 +102,11 @@ def history_calculation(user_uuid, item_id):
         results = pd.concat([results, temp_df], ignore_index=True)
 
     results['balance'] = (results['last_balance'] - results['total_history_amount']).round(2)
-    results['start_of_month'] = results['date'].apply(lambda dt: dt.replace(day=1))
-    results['end_of_month'] = results['date'] + pd.offsets.MonthEnd(0)
     results['is_start_of_month'] = results['date'].dt.is_month_start
     results['is_end_of_month'] = results['date'].dt.is_month_end
+    results['date'] = results['date'].dt.tz_convert('UTC')
+    results['start_of_month'] = results['date'].apply(lambda dt: dt.replace(day=1))
+    results['end_of_month'] = results['date'] + pd.offsets.MonthEnd(0)
 
     results.drop(columns=['total_history_amount', 'last_balance'], inplace=True)
     results.rename(columns={'account_id': 'id'}, inplace=True)
@@ -142,6 +142,6 @@ def trigger_balance_history_calc():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
-    #result = history_calculation(user_uuid='a7972c65-5a81-4e71-812b-951bb7825d73', item_id=7859680)
+    # app.run(host='0.0.0.0', port=8080)
+    result = history_calculation(user_uuid='1585f4fb-8a72-4d58-8820-95101b320637', item_id=7873128)
     # print(result)
