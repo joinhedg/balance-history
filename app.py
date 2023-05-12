@@ -26,11 +26,13 @@ def token_required(f):
     return decorated
 
 
-def history_calculation(user_uuid, item_id):
+def history_calculation(user_uuid, item_id, account_id=None):
     env = load_credentials()
 
     df_account = get_object_from_bubble("bridge_account", env, user_uuid=user_uuid, item_id=item_id)
     df_account = df_account[(df_account['user_uuid'] == user_uuid) & (df_account['item_id'] == item_id)]
+    if account_id is not None:
+        df_account = df_account[df_account['id'] == account_id]
     df_account.rename(columns={'id': 'account_id'}, inplace=True)
     df_account_unique = df_account[
         ['account_id', 'bank_id', 'currency_code', 'iban', 'is_pro', 'name', 'item_id', 'user_uuid']].drop_duplicates()
@@ -38,6 +40,11 @@ def history_calculation(user_uuid, item_id):
         {'date': 'min'}).reset_index()
 
     df_transactions = get_object_from_bubble("bridge_transactions", env, user_uuid=user_uuid, item_id=item_id)
+    if account_id is not None:
+        df_transactions = df_transactions[df_transactions['account_id'] == account_id]
+    df_transactions = df_transactions[df_transactions['show_client_side'] == True]
+    df_transactions = df_transactions[df_transactions['is_deleted'] == False]
+    df_transactions = df_transactions[df_transactions['is_future'] == False]
     df_transactions_grouped_min_date = df_transactions.groupby(['item_id', 'account_id', 'user_uuid']).agg(
         {'date': 'min'}).reset_index()
 
@@ -54,7 +61,8 @@ def history_calculation(user_uuid, item_id):
 
     # Initialize an empty dataframe to store the results
     results = pd.DataFrame(
-        columns=['account_id', 'item_id', 'user_uuid', 'date', 'total_history_amount', 'last_balance'])
+        columns=['account_id', 'item_id', 'user_uuid', 'date', 'total_daily_amount', 'total_history_amount',
+                 'last_balance'])
 
     for index, row in merged_df.iterrows():
         min_transac_date = row['date_transactions_min']
@@ -78,15 +86,25 @@ def history_calculation(user_uuid, item_id):
                            )
 
         def history_amount(history_date):
-            # Calculate the total amount per day for the same 'account_id', 'item_id', and 'user_uuid'
-            temp_df_ammout = df_transactions_grouped_sum_amount[
+            # Calculate the total history amount per day for the same 'account_id', 'item_id', and 'user_uuid'
+            temp_df_amount = df_transactions_grouped_sum_amount[
                 (df_transactions_grouped_sum_amount['account_id'] == row['account_id']) &
                 (df_transactions_grouped_sum_amount['item_id'] == row['item_id']) &
                 (df_transactions_grouped_sum_amount['user_uuid'] == row['user_uuid']) &
                 (df_transactions_grouped_sum_amount['date'] >= history_date)]
-            return temp_df_ammout['amount'].sum()
+            return temp_df_amount['amount'].sum()
+
+        def daily_amount(history_date):
+            # Calculate the total amount per day for the same 'account_id', 'item_id', and 'user_uuid'
+            temp_df_amount = df_transactions_grouped_sum_amount[
+                (df_transactions_grouped_sum_amount['account_id'] == row['account_id']) &
+                (df_transactions_grouped_sum_amount['item_id'] == row['item_id']) &
+                (df_transactions_grouped_sum_amount['user_uuid'] == row['user_uuid']) &
+                (df_transactions_grouped_sum_amount['date'].dt.date == history_date.date())]
+            return temp_df_amount['amount'].sum()
 
         temp_df['total_history_amount'] = temp_df.apply(lambda x: history_amount(x['date']), axis=1)
+        temp_df['total_daily_amount'] = temp_df.apply(lambda x: daily_amount(x['date']), axis=1)
 
         temp_df_balance = df_account[
             (df_account['account_id'] == row['account_id']) &
@@ -108,7 +126,7 @@ def history_calculation(user_uuid, item_id):
     results['start_of_month'] = results['date'].apply(lambda dt: dt.replace(day=1))
     results['end_of_month'] = results['date'] + pd.offsets.MonthEnd(0)
 
-    results.drop(columns=['total_history_amount', 'last_balance'], inplace=True)
+    results.drop(columns=['total_daily_amount', 'total_history_amount', 'last_balance'], inplace=True)
     results.rename(columns={'account_id': 'id'}, inplace=True)
 
     test = results.empty
@@ -116,6 +134,8 @@ def history_calculation(user_uuid, item_id):
         results['date'] = results['date'].dt.strftime('%Y-%m-%dT%H:%M:%S.000Z')
         results['start_of_month'] = results['start_of_month'].dt.strftime('%Y-%m-%dT%H:%M:%S.000Z')
         results['end_of_month'] = results['end_of_month'].dt.strftime('%Y-%m-%dT%H:%M:%S.000Z')
+        results[['iban', 'name']] = results[['iban', 'name']].fillna(value='Not available')
+
         results = results.to_dict('records')
 
         output_body = ""
@@ -143,5 +163,8 @@ def trigger_balance_history_calc():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
-    #result = history_calculation(user_uuid='1585f4fb-8a72-4d58-8820-95101b320637', item_id=7873128)
+    # result = history_calculation(
+    #     user_uuid='1585f4fb-8a72-4d58-8820-95101b320637',
+    #     item_id=7875835
+    # )
     # print(result)
