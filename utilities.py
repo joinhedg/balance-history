@@ -24,11 +24,11 @@ def load_credentials(test):
     lemon_key = os.environ.get('LEMON_KEY')
     eod_key = os.environ.get('EOD_KEY')
     bubble_token = os.environ.get('BUBBLE_TOKEN')
-    if test is True:
-        bubble_base_url = os.environ.get('BUBBLE_TEST_BASE_URL')
-        bridge_client_id = os.environ.get('BRIDGE_TEST_CLIENT_ID')
-        bridge_client_secret = os.environ.get('BRIDGE_TEST_CLIENT_SECRET')
-    elif test is False:
+    bubble_base_url = os.environ.get('BUBBLE_TEST_BASE_URL')
+    bridge_client_id = os.environ.get('BRIDGE_TEST_CLIENT_ID')
+    bridge_client_secret = os.environ.get('BRIDGE_TEST_CLIENT_SECRET')
+
+    if test is False:
         bubble_base_url = os.environ.get('BUBBLE_PROD_BASE_URL')
         bridge_client_id = os.environ.get('BRIDGE_PROD_CLIENT_ID')
         bridge_client_secret = os.environ.get('BRIDGE_PROD_CLIENT_SECRET')
