@@ -1,14 +1,16 @@
 import os
+import urllib
+
 import pandas as pd
 import requests
 from dotenv import load_dotenv
 import secrets
-import urllib.parse
+from datetime import datetime
+import pytz
+from matplotlib import pyplot as plt
 
-from matplotlib import pyplot, pyplot as plt
 
-
-def load_credentials():
+def load_credentials(test):
     load_dotenv()  # take environment variables from .env.
 
     # Database settings
@@ -22,7 +24,15 @@ def load_credentials():
     lemon_key = os.environ.get('LEMON_KEY')
     eod_key = os.environ.get('EOD_KEY')
     bubble_token = os.environ.get('BUBBLE_TOKEN')
-    bubble_base_url = os.environ.get('BUBBLE_BASE_URL')
+    if test is True:
+        bubble_base_url = os.environ.get('BUBBLE_TEST_BASE_URL')
+        bridge_client_id = os.environ.get('BRIDGE_TEST_CLIENT_ID')
+        bridge_client_secret = os.environ.get('BRIDGE_TEST_CLIENT_SECRET')
+    elif test is False:
+        bubble_base_url = os.environ.get('BUBBLE_PROD_BASE_URL')
+        bridge_client_id = os.environ.get('BRIDGE_PROD_CLIENT_ID')
+        bridge_client_secret = os.environ.get('BRIDGE_PROD_CLIENT_SECRET')
+
     api_token = os.environ.get('API_TOKEN')
 
     return {'username': username,
@@ -36,58 +46,10 @@ def load_credentials():
             'eod_key': eod_key,
             'bubble_token': bubble_token,
             'bubble_base_url': bubble_base_url,
-            'api_token': api_token
+            'api_token': api_token,
+            'bridge_client_id': bridge_client_id,
+            'bridge_client_secret': bridge_client_secret
             }
-
-
-def get_object_from_bubble(object_name, envr, user_uuid, item_id):
-    token = envr['bubble_token']
-    base_url = envr['bubble_base_url']
-    constraints = f'?constraints=[ {{ "key": "item_id", "constraint_type": "equals", "value": "{item_id}"}}, {{"key": "user_uuid", "constraint_type": "equals", "value": "{user_uuid}"}}]'
-    full_url = base_url + object_name + constraints
-    encoded_full_url = urllib.parse.quote(full_url, safe=':/?=[]{},')
-
-    headers = {
-        'Authorization': f'Bearer {token}'
-    }
-
-    import requests
-    import pandas as pd
-
-    # Initialize
-    df_list = []
-    cursor = 0
-    remaining = 1  # a non-zero value
-    limit = 100
-
-    while remaining > 0:
-        response = requests.get(
-            encoded_full_url,
-            headers=headers,
-            params={
-                'limit': limit,
-                'cursor': cursor
-            }
-        ).json()
-
-        # Append the results to your DataFrame
-        df_list.append(pd.DataFrame(response['response']['results']))
-
-        # Update remaining and count
-        remaining = response['response']['remaining']
-        count = response['response']['count']
-
-        # Update cursor position
-        cursor += count
-
-    df = pd.concat(df_list, ignore_index=True)
-
-    # check if 'date' column exists in the dataframe
-    if 'date' in df.columns:
-        # convert date column to datetime format
-        df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%dT%H:%M:%S.%fZ')
-        df['date'] = df['date'].dt.tz_localize('Europe/Paris')
-    return df
 
 
 def bulk_export_to_bubble(object_name, envr, body):
@@ -107,34 +69,86 @@ def bulk_export_to_bubble(object_name, envr, body):
     return {'response': response.text}
 
 
-def test_api_local():
-    env = load_credentials()
-
-    token = env['api_token']
-    full_url = 'http://0.0.0.0:8080/trigger_balance_history_calc'
-    headers = {
-        'Authorization': token,
-    }
-
-    response = requests.post(
-        full_url,
-        headers=headers,
-        json={
-            'user_uuid': '77b5f941-14cb-4f92-88f8-d111feb41f03',
-            'item_id': 7846258
-        }
-    ).json()
-
-    return response
-
-
 def gen_secret():
     secret = secrets.token_hex(32)
     return secret
 
 
-if __name__ == "__main__":
-    print(test_api_local())
+def get_data_from_bridge_api_list_accounts(client_id, client_secret, access_token, item_id, limit=500):
+    base_url = "https://api.bridgeapi.io/v2/accounts"
+    url = f"{base_url}?item_id={item_id}"
+    headers = {
+        'Bridge-Version': '2021-06-01',
+        'Client-Id': client_id,
+        'Client-Secret': client_secret,
+        'Authorization': f'Bearer {access_token}',
+    }
+
+    all_data = []
+
+    while url:
+        response = requests.get(url, headers=headers, params={'limit': limit})
+        data = response.json()
+
+        if response.status_code == 200:
+            all_data.extend(data['resources'])
+
+            # Check if there is a next page
+            if data['pagination']['next_uri'] is not None:
+                url = base_url + data['pagination']['next_uri']
+            else:
+                url = None
+        else:
+            print(f"Error: {data['error']}")
+            url = None
+
+    df = pd.DataFrame(all_data)
+
+    # Get the current time in Europe/Paris timezone
+    paris_tz = pytz.timezone('Europe/Paris')
+    current_time = datetime.now(paris_tz)
+
+    # Add the new column to df
+    df['date'] = current_time
+    return df
+
+
+def get_data_from_bridge_api_list_transactions_by_account(client_id, client_secret, access_token, account_id, item_id,
+                                                          limit=500,
+                                                          until_date=None):
+    base_url = f"https://api.bridgeapi.io/v2/accounts/{account_id}/transactions"
+    url = f"{base_url}?limit={limit}"
+    if until_date is not None:
+        url += f"&until={until_date}"
+
+    headers = {
+        'Bridge-Version': '2021-06-01',
+        'Client-Id': client_id,
+        'Client-Secret': client_secret,
+        'Authorization': f'Bearer {access_token}',
+    }
+
+    all_data = []
+
+    while url:
+        response = requests.get(url, headers=headers, params={'limit': limit})
+        data = response.json()
+
+        if response.status_code == 200:
+            all_data.extend(data['resources'])
+
+            # Check if there is a next page
+            if data['pagination']['next_uri'] is not None:
+                url = base_url + data['pagination']['next_uri']
+            else:
+                url = None
+        else:
+            print(f"Error: {data['error']}")
+            url = None
+    df = pd.DataFrame(all_data)
+    df['item_id'] = item_id
+
+    return df
 
 
 def plot_history(results):
@@ -162,3 +176,78 @@ def plot_history(results):
         ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
 
         plt.show()
+
+
+def amount_in(amount):
+    if amount > 0:
+        return amount
+    else:
+        return 0
+
+
+def amount_out(amount):
+    if amount < 0:
+        return amount * -1
+    else:
+        return 0
+
+
+def get_object_from_bubble(object_name, envr):
+    token = envr['bubble_token']
+    base_url = envr['bubble_base_url']
+    full_url = base_url + object_name
+
+    headers = {
+        'Authorization': f'Bearer {token}'
+    }
+
+    # Initialize
+    df_list = []
+    cursor = 0
+    remaining = 1  # a non-zero value
+    limit = 100
+
+    while remaining > 0:
+        response = requests.get(
+            full_url,
+            headers=headers,
+            params={
+                'limit': limit,
+                'cursor': cursor
+            }
+        ).json()
+
+        # Append the results to your DataFrame
+        df_list.append(pd.DataFrame(response['response']['results']))
+
+        # Update remaining and count
+        remaining = response['response']['remaining']
+        count = response['response']['count']
+
+        # Update cursor position
+        cursor += count
+
+    df = pd.concat(df_list, ignore_index=True)
+
+    return df
+
+
+if __name__ == '__main__':
+    env = load_credentials(True)
+    # result_df = get_data_from_bridge_api_list_accounts(
+    #     env['BRIDGE_TEST_CLIENT_ID'],
+    #     env['BRIDGE_TEST_CLIENT_SECRET'],
+    #     access_token="c7e91e94cff0f5aea26e4c12d0edf56d6128d169-9ecf6645-684e-4f97-ae5e-19d8c6118caf",
+    #     item_id=7885019
+    # )
+
+    # result_df = get_data_from_bridge_api_list_transactions_by_account(
+    #     env['bridge_client_id'],
+    #     env['bridge_client_secret'],
+    #     access_token="4377f22917d6d8e47d0bbefc9f4bcaecd6a83243-054c4d3f-9f01-457a-ad2a-0f188e5c9309",
+    #     item_id=7885019,
+    #     account_id=35778779)
+
+    result_df = get_object_from_bubble("bridge_categories", envr=env)
+
+    print(result_df)
