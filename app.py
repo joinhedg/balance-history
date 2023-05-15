@@ -216,12 +216,13 @@ def trigger_balance_history_calc():
 
 
 if __name__ == '__main__':
-    env = load_credentials(True)
-    # app.run(host='0.0.0.0', port=8080)
-    result = history_calculation(
-        user_uuid=env['user_uuid'],
-        item_id=env['item_id'],
-        bridge_token=env['bridge_auth_token'],
-        test=True
-    )
-    print(result)
+    app.run(host='0.0.0.0', port=8080)
+
+    # env = load_credentials(True)
+    # result = history_calculation(
+    #     user_uuid=env['user_uuid'],
+    #     item_id=env['item_id'],
+    #     bridge_token=env['bridge_auth_token'],
+    #     test=True
+    # )
+    # print(result)
