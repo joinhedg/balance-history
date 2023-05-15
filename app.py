@@ -17,7 +17,7 @@ def token_required(f):
             return jsonify({'message': 'Token is missing'}), 403
 
         try:
-            env = load_credentials()
+            env = load_credentials(True)
             if not token == env['api_token']:
                 raise Exception("Invalid Token")
         except:
