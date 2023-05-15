@@ -27,6 +27,9 @@ def load_credentials(test):
     bubble_base_url = os.environ.get('BUBBLE_TEST_BASE_URL')
     bridge_client_id = os.environ.get('BRIDGE_TEST_CLIENT_ID')
     bridge_client_secret = os.environ.get('BRIDGE_TEST_CLIENT_SECRET')
+    bridge_auth_token = os.environ.get('BRIDGE_AUTH_TOKEN')
+    user_uuid = os.environ.get('USER_UUID')
+    item_id = os.environ.get('ITEM_ID')
 
     if test is False:
         bubble_base_url = os.environ.get('BUBBLE_PROD_BASE_URL')
@@ -48,7 +51,10 @@ def load_credentials(test):
             'bubble_base_url': bubble_base_url,
             'api_token': api_token,
             'bridge_client_id': bridge_client_id,
-            'bridge_client_secret': bridge_client_secret
+            'bridge_client_secret': bridge_client_secret,
+            'bridge_auth_token': bridge_auth_token,
+            'user_uuid': user_uuid,
+            'item_id': item_id
             }
 
 
@@ -233,19 +239,18 @@ def get_object_from_bubble(object_name, envr):
 
 
 def test_api_local(env):
-    token = env['api_token']
     full_url = 'http://0.0.0.0:8080/trigger_balance_history_calc'
     headers = {
-        'Authorization': token,
+        'Authorization': env['api_token'],
     }
 
     response = requests.post(
         full_url,
         headers=headers,
         json={
-            "user_uuid": "1",
-            "item_id": 1,
-            "bridge_token": "1",
+            "user_uuid": env['user_uuid'],
+            "item_id": env['item_id'],
+            "bridge_token": env['bridge_auth_token'],
             "test": True}
     ).json()
 

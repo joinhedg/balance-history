@@ -92,11 +92,13 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
 
     df_transactions_grouped_min_date = df_all_transactions.groupby(['item_id', 'account_id']).agg(
         {'date': 'min'}).reset_index()
+    df_transactions_grouped_min_date['date'] = pd.to_datetime(df_transactions_grouped_min_date['date'])
 
     # Group by 'item_id', 'account_id', and 'date', and aggregate the sum of 'amount'
     df_transactions_grouped_sum_amount = df_all_transactions.groupby(
         ['item_id', 'account_id', 'date']).agg(
         {'amount': 'sum'}).reset_index()
+    df_transactions_grouped_sum_amount['date'] = pd.to_datetime(df_transactions_grouped_sum_amount['date'])
 
     # Merge grouped_df and grouped_df_min_date on 'account_id', 'item_id'
     merged_df = pd.merge(df_account_grouped_min_date, df_transactions_grouped_min_date,
@@ -214,11 +216,12 @@ def trigger_balance_history_calc():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
-    # result = history_calculation(
-    #     item_id=,
-    #     user_uuid="",
-    #     bridge_token="",
-    #     test=True
-    # )
-    # print(result)
+    env = load_credentials(True)
+    # app.run(host='0.0.0.0', port=8080)
+    result = history_calculation(
+        user_uuid=env['user_uuid'],
+        item_id=env['item_id'],
+        bridge_token=env['bridge_auth_token'],
+        test=True
+    )
+    print(result)
