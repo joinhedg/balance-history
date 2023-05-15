@@ -232,22 +232,43 @@ def get_object_from_bubble(object_name, envr):
     return df
 
 
+def test_api_local(env):
+    token = env['api_token']
+    full_url = 'http://0.0.0.0:8080/trigger_balance_history_calc'
+    headers = {
+        'Authorization': token,
+    }
+
+    response = requests.post(
+        full_url,
+        headers=headers,
+        json={
+            "user_uuid": "1",
+            "item_id": 1,
+            "bridge_token": "1",
+            "test": True}
+    ).json()
+
+    return response
+
+
 if __name__ == '__main__':
     env = load_credentials(True)
+    print(test_api_local(env))
     # result_df = get_data_from_bridge_api_list_accounts(
     #     env['BRIDGE_TEST_CLIENT_ID'],
     #     env['BRIDGE_TEST_CLIENT_SECRET'],
-    #     access_token="c7e91e94cff0f5aea26e4c12d0edf56d6128d169-9ecf6645-684e-4f97-ae5e-19d8c6118caf",
-    #     item_id=7885019
+    #     access_token="",
+    #     item_id=
     # )
 
     # result_df = get_data_from_bridge_api_list_transactions_by_account(
     #     env['bridge_client_id'],
     #     env['bridge_client_secret'],
-    #     access_token="4377f22917d6d8e47d0bbefc9f4bcaecd6a83243-054c4d3f-9f01-457a-ad2a-0f188e5c9309",
-    #     item_id=7885019,
-    #     account_id=35778779)
+    #     access_token="",
+    #     item_id=,
+    #     account_id=)
 
-    result_df = get_object_from_bubble("bridge_categories", envr=env)
+    # result_df = get_object_from_bubble("bridge_categories", envr=env)
 
-    print(result_df)
+    # print(result_df)

@@ -88,8 +88,7 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
         transactions_output_body = ""
         for transaction in df_all_transactions_export:
             transactions_output_body += json.dumps(transaction) + '\n'
-        response = bulk_export_to_bubble("bridge_transactions", envr=env, body=transactions_output_body)
-        return response
+        response_transaction = bulk_export_to_bubble("bridge_transactions", envr=env, body=transactions_output_body)
 
     df_transactions_grouped_min_date = df_all_transactions.groupby(['item_id', 'account_id']).agg(
         {'date': 'min'}).reset_index()
@@ -185,10 +184,12 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
         history_output_body = ""
         for result in results:
             history_output_body += json.dumps(result) + '\n'
-        response = bulk_export_to_bubble("bridge_account", envr=env, body=history_output_body)
-        return response
-    else:
-        return 'everything up to date'
+        response_account = bulk_export_to_bubble("bridge_account", envr=env, body=history_output_body)
+
+    return {
+        'transaction_update': response_transaction,
+        'transaction_account': response_account
+    }
 
 
 @app.route('/trigger_balance_history_calc', methods=['POST'])
