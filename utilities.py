@@ -1,5 +1,6 @@
 import os
 import urllib
+from functools import wraps
 
 import pandas as pd
 import requests
@@ -7,6 +8,7 @@ from dotenv import load_dotenv
 import secrets
 from datetime import datetime
 import pytz
+from flask import request, jsonify
 from matplotlib import pyplot as plt
 
 
@@ -119,11 +121,12 @@ def get_data_from_bridge_api_list_accounts(client_id, client_secret, access_toke
     return df
 
 
-def get_data_from_bridge_api_list_transactions_by_account(client_id, client_secret, access_token, account_id, item_id,
+def get_data_from_bridge_api_list_transactions_by_account(client_id, client_secret,
+                                                          access_token, account_id,
                                                           limit=500,
                                                           until_date=None):
     base_url = f"https://api.bridgeapi.io/v2/accounts/{account_id}/transactions"
-    url = f"{base_url}?limit={limit}"
+    url = f"{base_url}"
     if until_date is not None:
         url += f"&until={until_date}"
 
@@ -144,15 +147,16 @@ def get_data_from_bridge_api_list_transactions_by_account(client_id, client_secr
             all_data.extend(data['resources'])
 
             # Check if there is a next page
-            if data['pagination']['next_uri'] is not None:
-                url = base_url + data['pagination']['next_uri']
+            next_page = data['pagination']['next_uri']
+            test=1
+            if next_page is not None:
+                url = base_url + next_page
             else:
                 url = None
         else:
             print(f"Error: {data['error']}")
             url = None
     df = pd.DataFrame(all_data)
-    df['item_id'] = item_id
 
     return df
 
@@ -277,3 +281,22 @@ if __name__ == '__main__':
     # result_df = get_object_from_bubble("bridge_categories", envr=env)
 
     # print(result_df)
+
+
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = request.headers.get('Authorization')
+        if not token:
+            return jsonify({'message': 'Token is missing'}), 403
+
+        try:
+            env = load_credentials(True)
+            if not token == env['api_token']:
+                raise Exception("Invalid Token")
+        except:
+            return jsonify({'message': 'Token is invalid'}), 403
+
+        return f(*args, **kwargs)
+
+    return decorated

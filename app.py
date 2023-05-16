@@ -2,40 +2,22 @@ import json
 import pandas as pd
 from utilities import load_credentials, bulk_export_to_bubble, \
     get_data_from_bridge_api_list_accounts, get_data_from_bridge_api_list_transactions_by_account, amount_in, \
-    amount_out, get_object_from_bubble
+    amount_out, get_object_from_bubble, token_required
 from flask import Flask, request, jsonify
-from functools import wraps
 
 app = Flask(__name__)
 
 
-def token_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = request.headers.get('Authorization')
-        if not token:
-            return jsonify({'message': 'Token is missing'}), 403
-
-        try:
-            env = load_credentials(True)
-            if not token == env['api_token']:
-                raise Exception("Invalid Token")
-        except:
-            return jsonify({'message': 'Token is invalid'}), 403
-
-        return f(*args, **kwargs)
-
-    return decorated
-
-
 def history_calculation(item_id, user_uuid, bridge_token, test):
+    # Load env variables
     env = load_credentials(test)
 
+    # Load categories and transform
     df_categories = get_object_from_bubble("bridge_categories", envr=env)
     df_categories = df_categories[['id', 'name', 'color', 'parent_name']]
     df_categories.rename(columns={'id': 'category_id'}, inplace=True)
 
-    # Fetch account data
+    # Fetch account data and transform
     df_accounts = get_data_from_bridge_api_list_accounts(
         env['bridge_client_id'],
         env['bridge_client_secret'],
@@ -43,30 +25,37 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
         item_id=item_id
     )
     df_accounts.rename(columns={'id': 'account_id'}, inplace=True)
+
+    # Group by account to find the min balance date
     df_account_grouped_min_date = df_accounts.groupby(['item_id', 'account_id']).agg({'date': 'min'}).reset_index()
 
     # Fetch transactions for each account
     df_all_transactions = pd.DataFrame()
-    for account_id, item_id in zip(df_accounts['account_id'].unique(), df_accounts['item_id'].unique()):
+    for account_id in df_accounts['account_id'].unique():
         df_transactions = get_data_from_bridge_api_list_transactions_by_account(
             env['bridge_client_id'],
             env['bridge_client_secret'],
             access_token=bridge_token,
-            account_id=account_id,
-            item_id=item_id
+            account_id=account_id
         )
         df_all_transactions = pd.concat([df_transactions, df_all_transactions])
-        df_all_transactions['date'] = pd.to_datetime(df_all_transactions['date'], format='%Y-%m-%d')
-        df_all_transactions['date'] = df_all_transactions['date'].dt.tz_localize('Europe/Paris')
 
+    # Add item_id
+    df_all_transactions['item_id'] = item_id
+
+    # Convert to datetime
+    df_all_transactions['date'] = pd.to_datetime(df_all_transactions['date'], format='%Y-%m-%d')
+    df_all_transactions['date'] = df_all_transactions['date'].dt.tz_localize('Europe/Paris')
+    # Filter transactions
     df_all_transactions = df_all_transactions[df_all_transactions['show_client_side'] == True]
     df_all_transactions = df_all_transactions[df_all_transactions['is_deleted'] == False]
     df_all_transactions = df_all_transactions[df_all_transactions['is_future'] == False]
 
+    # add categories
     df_all_transactions = df_all_transactions.merge(df_categories, on=['category_id'])
 
+    # Export transactions to bubble
     df_all_transactions_export = df_all_transactions
-
     if df_all_transactions_export.empty is False:
         df_all_transactions_export.rename(
             columns={
@@ -76,6 +65,8 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
                 'parent_name': 'parent_category_name'
             },
             inplace=True)
+
+        # prepare data before export
         df_all_transactions_export['date'] = df_all_transactions_export['date'].dt.tz_convert('UTC')
         df_all_transactions_export['date'] = df_all_transactions_export['date'].dt.strftime('%Y-%m-%dT%H:%M:%S.000Z')
         df_all_transactions_export['item_id'] = item_id
@@ -83,16 +74,18 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
         df_all_transactions_export['amount_out'] = df_all_transactions_export['amount'].apply(amount_out)
         df_all_transactions_export['user_uuid'] = user_uuid
         df_all_transactions_export.drop(columns=['bank_description'], inplace=True)
+        transactions_count_to_upload = df_all_transactions_export.shape[0]
         df_all_transactions_export = df_all_transactions_export.to_dict('records')
 
         transactions_output_body = ""
         for transaction in df_all_transactions_export:
             transactions_output_body += json.dumps(transaction) + '\n'
         response_transaction = bulk_export_to_bubble("bridge_transactions", envr=env, body=transactions_output_body)
+        transactions_count_success = response_transaction['response'].count('"status":"success"')
 
     df_transactions_grouped_min_date = df_all_transactions.groupby(['item_id', 'account_id']).agg(
         {'date': 'min'}).reset_index()
-    df_transactions_grouped_min_date['date'] = pd.to_datetime(df_transactions_grouped_min_date['date'])
+    df_transactions_grouped_min_date['date'] = pd.to_datetime(df_transactions_grouped_min_date['date'], utc=True).dt.tz_convert('Europe/Paris')
 
     # Group by 'item_id', 'account_id', and 'date', and aggregate the sum of 'amount'
     df_transactions_grouped_sum_amount = df_all_transactions.groupby(
@@ -181,30 +174,35 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
         results['end_of_month'] = results['end_of_month'].dt.strftime('%Y-%m-%dT%H:%M:%S.000Z')
         results[['iban', 'name']] = results[['iban', 'name']].fillna(value='Not available')
 
+        accounts_count_to_upload = results.shape[0]
+
         results = results.to_dict('records')
 
         history_output_body = ""
         for result in results:
             history_output_body += json.dumps(result) + '\n'
         response_account = bulk_export_to_bubble("bridge_account", envr=env, body=history_output_body)
+        account_count_success = response_account['response'].count('"status":"success"')
 
     return {
+        'transactions_count_to_upload': transactions_count_to_upload,
+        'transaction_shape': transactions_count_success,
+        'accounts_count_to_upload': accounts_count_to_upload,
+        'account_count_success': account_count_success,
+        'transaction_account': response_account,
         'transaction_update': response_transaction,
-        'transaction_account': response_account
     }
 
 
 @app.route('/trigger_balance_history_calc', methods=['POST'])
 @token_required
 def trigger_balance_history_calc():
-    # Récupérez les arguments de la requête POST
     data = request.json
     user_uuid = data.get('user_uuid')
     bridge_token = data.get('bridge_token')
-    item_id = data.get('item_id')
+    item_id = int(data.get('item_id'))
     test = data.get('test')
 
-    # Passez les arguments à la fonction
     result = history_calculation(
         item_id=item_id,
         user_uuid=user_uuid,
@@ -216,13 +214,13 @@ def trigger_balance_history_calc():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+    # app.run(host='0.0.0.0', port=8080)
 
-    # env = load_credentials(True)
-    # result = history_calculation(
-    #     user_uuid=env['user_uuid'],
-    #     item_id=env['item_id'],
-    #     bridge_token=env['bridge_auth_token'],
-    #     test=True
-    # )
-    # print(result)
+    env = load_credentials(True)
+    result = history_calculation(
+        user_uuid=env['user_uuid'],
+        item_id=int(env['item_id']),
+        bridge_token=env['bridge_auth_token'],
+        test=True
+    )
+    print(result)
