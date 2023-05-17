@@ -184,7 +184,7 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
         response_account = bulk_export_to_bubble("bridge_account", envr=env, body=history_output_body)
         account_count_success = response_account['response'].count('"status":"success"')
 
-    return {
+    result_script = {
         'transactions_count_to_upload': transactions_count_to_upload,
         'transaction_shape': transactions_count_success,
         'accounts_count_to_upload': accounts_count_to_upload,
@@ -192,6 +192,8 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
         'transaction_account': response_account,
         'transaction_update': response_transaction,
     }
+    print(result_script)
+    return result_script
 
 
 @app.route('/trigger_balance_history_calc', methods=['POST'])
