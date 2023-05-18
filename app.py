@@ -106,11 +106,8 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
                  'last_balance'])
 
     for index, row in merged_df.iterrows():
-        min_transac_date = row['date_transactions_min']
-        min_account_date = row['date_account_min']
-        timestamp_3_months_prior = min_account_date - pd.DateOffset(months=3)
-        start_date = min(min_transac_date, timestamp_3_months_prior)
-        end_date = min_account_date
+        start_date = row['date_transactions_min']
+        end_date = row['date_account_min']
 
         # Generate a date range between the start and end dates
         date_range = pd.date_range(start=start_date.normalize(), end=end_date.normalize(), freq='D', tz='Europe/Paris')
@@ -188,9 +185,7 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
         'transactions_count_to_upload': transactions_count_to_upload,
         'transaction_shape': transactions_count_success,
         'accounts_count_to_upload': accounts_count_to_upload,
-        'account_count_success': account_count_success,
-        'transaction_account': response_account,
-        'transaction_update': response_transaction,
+        'account_count_success': account_count_success
     }
     print(result_script)
     return result_script

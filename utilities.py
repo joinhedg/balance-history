@@ -32,6 +32,7 @@ def load_credentials(test):
     bridge_auth_token = os.environ.get('BRIDGE_AUTH_TOKEN')
     user_uuid = os.environ.get('USER_UUID')
     item_id = os.environ.get('ITEM_ID')
+    account_id = os.environ.get('ACCOUNT_ID')
 
     if test is False:
         bubble_base_url = os.environ.get('BUBBLE_PROD_BASE_URL')
@@ -56,7 +57,8 @@ def load_credentials(test):
             'bridge_client_secret': bridge_client_secret,
             'bridge_auth_token': bridge_auth_token,
             'user_uuid': user_uuid,
-            'item_id': item_id
+            'item_id': item_id,
+            'account_id': account_id
             }
 
 
@@ -142,13 +144,12 @@ def get_data_from_bridge_api_list_transactions_by_account(client_id, client_secr
     while url:
         response = requests.get(url, headers=headers, params={'limit': limit})
         data = response.json()
-
         if response.status_code == 200:
             all_data.extend(data['resources'])
 
             # Check if there is a next page
             next_page = data['pagination']['next_uri']
-            test=1
+            test = 1
             if next_page is not None:
                 url = base_url + next_page
             else:
@@ -157,6 +158,7 @@ def get_data_from_bridge_api_list_transactions_by_account(client_id, client_secr
             print(f"Error: {data['error']}")
             url = None
     df = pd.DataFrame(all_data)
+    # df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
 
     return df
 
@@ -261,28 +263,6 @@ def test_api_local(env):
     return response
 
 
-if __name__ == '__main__':
-    env = load_credentials(True)
-    print(test_api_local(env))
-    # result_df = get_data_from_bridge_api_list_accounts(
-    #     env['BRIDGE_TEST_CLIENT_ID'],
-    #     env['BRIDGE_TEST_CLIENT_SECRET'],
-    #     access_token="",
-    #     item_id=
-    # )
-
-    # result_df = get_data_from_bridge_api_list_transactions_by_account(
-    #     env['bridge_client_id'],
-    #     env['bridge_client_secret'],
-    #     access_token="",
-    #     item_id=,
-    #     account_id=)
-
-    # result_df = get_object_from_bubble("bridge_categories", envr=env)
-
-    # print(result_df)
-
-
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -300,3 +280,23 @@ def token_required(f):
         return f(*args, **kwargs)
 
     return decorated
+
+
+if __name__ == '__main__':
+    env = load_credentials(True)
+    # result_df = get_data_from_bridge_api_list_accounts(
+    #     env['BRIDGE_TEST_CLIENT_ID'],
+    #     env['BRIDGE_TEST_CLIENT_SECRET'],
+    #     access_token="",
+    #     item_id=
+    # )
+
+    result_df = get_data_from_bridge_api_list_transactions_by_account(
+        env['bridge_client_id'],
+        env['bridge_client_secret'],
+        access_token=env['bridge_auth_token'],
+        account_id=env['account_id'])
+
+    # result_df = get_object_from_bubble("bridge_categories", envr=env)
+
+    print(result_df)
