@@ -9,7 +9,6 @@ app = Flask(__name__)
 
 
 def history_calculation(item_id, user_uuid, bridge_token, test):
-    print("Start of calculation for ", item_id, ", test is ", test, ", type is ", type(test))
     # Load env variables
     env = load_credentials(test)
 
@@ -215,6 +214,8 @@ def trigger_balance_history_calc():
     bridge_token = data.get('bridge_token')
     item_id = int(data.get('item_id'))
     test = data.get('test')
+
+    print("Start of calculation for ", item_id, ", test is ", test, ", type is ", type(test))
 
     result = history_calculation(
         item_id=item_id,
