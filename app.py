@@ -215,6 +215,11 @@ def trigger_balance_history_calc():
     item_id = int(data.get('item_id'))
     test = data.get('test')
 
+    if (test == 'non') or (test == 'no'):
+        test = False
+    else:
+        test = True
+
     print("Start of calculation for ", item_id, ", test is ", test, ", type is ", type(test))
 
     result = history_calculation(
