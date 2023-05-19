@@ -9,7 +9,7 @@ app = Flask(__name__)
 
 
 def history_calculation(item_id, user_uuid, bridge_token, test):
-    print("Start of calculation for ", item_id, ", test is ", test)
+    print("Start of calculation for ", item_id, ", test is ", test, ", type is ", type(test))
     # Load env variables
     env = load_credentials(test)
 
