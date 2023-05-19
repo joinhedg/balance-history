@@ -17,6 +17,17 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
     df_categories = df_categories[['id', 'name', 'color', 'parent_name']]
     df_categories.rename(columns={'id': 'category_id'}, inplace=True)
 
+    # Load banks and transform
+    df_banks = get_object_from_bubble("bridge_bank", envr=env)
+    df_banks = df_banks[['id', 'name']]
+    df_banks.rename(
+        columns={
+            'id': 'bank_id',
+            'name': 'bank_name'
+        },
+        inplace=True
+    )
+
     # Fetch account data and transform
     df_accounts = get_data_from_bridge_api_list_accounts(
         env['bridge_client_id'],
@@ -53,6 +64,8 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
 
     # add categories
     df_all_transactions = df_all_transactions.merge(df_categories, on=['category_id'])
+    # add banks
+    df_all_transactions = df_all_transactions.merge(df_banks, on=['bank_id'])
 
     # Export transactions to bubble
     df_all_transactions_export = df_all_transactions
