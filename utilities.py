@@ -109,7 +109,7 @@ def get_data_from_bridge_api_list_accounts(client_id, client_secret, access_toke
             else:
                 url = None
         else:
-            print(f"Error: {data['error']}")
+            print(f"Error: {data}")
             url = None
 
     df = pd.DataFrame(all_data)

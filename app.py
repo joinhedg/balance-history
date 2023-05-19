@@ -9,6 +9,7 @@ app = Flask(__name__)
 
 
 def history_calculation(item_id, user_uuid, bridge_token, test):
+    print("Start of calculation for ", item_id, ", test is ", test)
     # Load env variables
     env = load_credentials(test)
 
@@ -96,7 +97,8 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
 
     df_transactions_grouped_min_date = df_all_transactions.groupby(['item_id', 'account_id']).agg(
         {'date': 'min'}).reset_index()
-    df_transactions_grouped_min_date['date'] = pd.to_datetime(df_transactions_grouped_min_date['date'], utc=True).dt.tz_convert('Europe/Paris')
+    df_transactions_grouped_min_date['date'] = pd.to_datetime(df_transactions_grouped_min_date['date'],
+                                                              utc=True).dt.tz_convert('Europe/Paris')
 
     # Group by 'item_id', 'account_id', and 'date', and aggregate the sum of 'amount'
     df_transactions_grouped_sum_amount = df_all_transactions.groupby(
@@ -226,12 +228,12 @@ def trigger_balance_history_calc():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
-    #
+
     # env = load_credentials(True)
     # result = history_calculation(
     #     user_uuid=env['user_uuid'],
     #     item_id=int(env['item_id']),
     #     bridge_token=env['bridge_auth_token'],
-    #     test=True
+    #     test=False
     # )
     # print(result)
