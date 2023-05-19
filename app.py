@@ -64,8 +64,6 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
 
     # add categories
     df_all_transactions = df_all_transactions.merge(df_categories, on=['category_id'])
-    # add banks
-    df_all_transactions = df_all_transactions.merge(df_banks, on=['bank_id'])
 
     # Export transactions to bubble
     df_all_transactions_export = df_all_transactions
@@ -164,6 +162,9 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
         # Append the results to the 'results' dataframe
         results = pd.concat([results, temp_df], ignore_index=True)
 
+    # add banks
+    results = results.merge(df_banks, on=['bank_id'])
+
     results['user_uuid'] = user_uuid
     results['balance'] = (results['last_balance'] - results['total_history_amount']).round(2)
     results['is_start_of_month'] = results['date'].dt.is_month_start
@@ -225,7 +226,7 @@ def trigger_balance_history_calc():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
-
+    #
     # env = load_credentials(True)
     # result = history_calculation(
     #     user_uuid=env['user_uuid'],
