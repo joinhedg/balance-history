@@ -43,8 +43,6 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
     df_accounts = df_accounts[df_accounts['currency_code'] == "EUR"]
     list_of_account_id = df_accounts['id'].tolist()
     list_of_item_id = df_accounts['item_id'].tolist()
-    list_of_account_id.append(0)
-    list_of_item_id.append(0)
 
     df_accounts.rename(columns={'id': 'account_id'}, inplace=True)
 
@@ -218,11 +216,9 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
         current_date = datetime.datetime.now(pytz.timezone("Europe/Paris"))
 
         for account_id, item_id in zip(list_of_account_id, list_of_item_id):
-            if account_id == 0:
-                temp_format_results = format_result
-            else:
-                temp_format_results = format_result[format_result['account_id'] == account_id]
-                temp_format_results = temp_format_results[temp_format_results['item_id'] == item_id]
+
+            temp_format_results = format_result[format_result['account_id'] == account_id]
+            temp_format_results = temp_format_results[temp_format_results['item_id'] == item_id]
 
             # 7 days calculations
             earliest_date = current_date - relativedelta(days=7)
@@ -234,11 +230,8 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
             seven_d_transactions_in = ", ".join(map(str, temp_format_results_filtered['amount_in'].tolist()))
             seven_d_transactions_out = ", ".join(map(str, temp_format_results_filtered['amount_out'].tolist()))
 
-            if account_id == 0:
-                temp_cat = df_all_transactions
-            else:
-                temp_cat = df_all_transactions[
-                    (df_all_transactions['account_id'] == account_id) & (df_all_transactions['item_id'] == item_id)]
+            temp_cat = df_all_transactions[
+                (df_all_transactions['account_id'] == account_id) & (df_all_transactions['item_id'] == item_id)]
 
             temp_cat['date'] = pd.to_datetime(temp_cat['date'])
             temp_cat = temp_cat[temp_cat['date'] >= earliest_date]
@@ -263,11 +256,8 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
             thirty_d_transactions_in = ", ".join(map(str, temp_format_results_filtered['amount_in'].tolist()))
             thirty_d_transactions_out = ", ".join(map(str, temp_format_results_filtered['amount_out'].tolist()))
 
-            if account_id == 0:
-                temp_cat = df_all_transactions
-            else:
-                temp_cat = df_all_transactions[
-                    (df_all_transactions['account_id'] == account_id) & (df_all_transactions['item_id'] == item_id)]
+            temp_cat = df_all_transactions[
+                (df_all_transactions['account_id'] == account_id) & (df_all_transactions['item_id'] == item_id)]
 
             temp_cat['date'] = pd.to_datetime(temp_cat['date'])
             temp_cat = temp_cat[temp_cat['date'] >= earliest_date]
@@ -311,31 +301,14 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
                     'month_year_date'].str.replace(en, fr)
 
             # Group by 'month_year', 'item_id', 'id' and get first() and last() 'balance'
-            if account_id == 0:
-                temp_format_results_filtered = temp_format_results_filtered.groupby(
-                    ['date', 'start_of_month', 'month_year_date']).agg(
-                    balance=('balance', 'sum'),
-                    amount_in=('amount_in', 'sum'),
-                    amount_out=('amount_out', 'sum'),
-                ).reset_index()
-                temp_format_results_filtered = temp_format_results_filtered.sort_values('start_of_month')
-                temp_agg_results = temp_format_results_filtered.groupby(['month_year_date']).agg(
-                    balance_start_of_month=('balance', 'first'),
-                    balance_end_of_month=('balance', 'last'),
-                    start_of_month=('start_of_month', 'first'),
-                    amount_in=('amount_in', 'sum'),
-                    amount_out=('amount_out', 'sum'),
-                ).reset_index()
-
-            else:
-                temp_agg_results = temp_format_results_filtered.groupby(
-                    ['month_year_date', 'item_id', 'account_id']).agg(
-                    balance_start_of_month=('balance', 'first'),
-                    balance_end_of_month=('balance', 'last'),
-                    start_of_month=('start_of_month', 'first'),
-                    amount_in=('amount_in', 'sum'),
-                    amount_out=('amount_out', 'sum'),
-                ).reset_index()
+            temp_agg_results = temp_format_results_filtered.groupby(
+                ['month_year_date', 'item_id', 'account_id']).agg(
+                balance_start_of_month=('balance', 'first'),
+                balance_end_of_month=('balance', 'last'),
+                start_of_month=('start_of_month', 'first'),
+                amount_in=('amount_in', 'sum'),
+                amount_out=('amount_out', 'sum'),
+            ).reset_index()
 
             # Sort by date
             temp_agg_results = temp_agg_results.sort_values('start_of_month')
@@ -347,11 +320,8 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
             three_m_transactions_in = ", ".join(map(str, temp_agg_results['amount_in'].tolist()))
             three_m_transactions_out = ", ".join(map(str, temp_agg_results['amount_out'].tolist()))
 
-            if account_id == 0:
-                temp_cat = df_all_transactions
-            else:
-                temp_cat = df_all_transactions[
-                    (df_all_transactions['account_id'] == account_id) & (df_all_transactions['item_id'] == item_id)]
+            temp_cat = df_all_transactions[
+                (df_all_transactions['account_id'] == account_id) & (df_all_transactions['item_id'] == item_id)]
 
             temp_cat['date'] = pd.to_datetime(temp_cat['date'])
             temp_cat = temp_cat[temp_cat['date'] >= earliest_date]
@@ -398,30 +368,14 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
             temp_format_results_filtered = temp_format_results_filtered.sort_values('date')
 
             # Group by 'month_year', 'item_id', 'id' and get first() and last() 'balance'
-            if account_id == 0:
-                temp_format_results_filtered = temp_format_results_filtered.groupby(
-                    ['date', 'start_of_month', 'month_year_date']).agg(
-                    balance=('balance', 'sum'),
-                    amount_in=('amount_in', 'sum'),
-                    amount_out=('amount_out', 'sum'),
-                ).reset_index()
-                temp_format_results_filtered = temp_format_results_filtered.sort_values('start_of_month')
-                temp_agg_results = temp_format_results_filtered.groupby(['month_year_date']).agg(
-                    balance_start_of_month=('balance', 'first'),
-                    balance_end_of_month=('balance', 'last'),
-                    start_of_month=('start_of_month', 'first'),
-                    amount_in=('amount_in', 'sum'),
-                    amount_out=('amount_out', 'sum'),
-                ).reset_index()
-            else:
-                temp_agg_results = temp_format_results_filtered.groupby(
-                    ['month_year_date', 'item_id', 'account_id']).agg(
-                    balance_start_of_month=('balance', 'first'),
-                    balance_end_of_month=('balance', 'last'),
-                    start_of_month=('start_of_month', 'first'),
-                    amount_in=('amount_in', 'sum'),
-                    amount_out=('amount_out', 'sum'),
-                ).reset_index()
+            temp_agg_results = temp_format_results_filtered.groupby(
+                ['month_year_date', 'item_id', 'account_id']).agg(
+                balance_start_of_month=('balance', 'first'),
+                balance_end_of_month=('balance', 'last'),
+                start_of_month=('start_of_month', 'first'),
+                amount_in=('amount_in', 'sum'),
+                amount_out=('amount_out', 'sum'),
+            ).reset_index()
 
             # Sort by date
             temp_agg_results = temp_agg_results.sort_values('start_of_month')
@@ -433,11 +387,8 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
             six_m_transactions_in = ", ".join(map(str, temp_agg_results['amount_in'].tolist()))
             six_m_transactions_out = ", ".join(map(str, temp_agg_results['amount_out'].tolist()))
 
-            if account_id == 0:
-                temp_cat = df_all_transactions
-            else:
-                temp_cat = df_all_transactions[
-                    (df_all_transactions['account_id'] == account_id) & (df_all_transactions['item_id'] == item_id)]
+            temp_cat = df_all_transactions[
+                (df_all_transactions['account_id'] == account_id) & (df_all_transactions['item_id'] == item_id)]
 
             temp_cat['date'] = pd.to_datetime(temp_cat['date'])
             temp_cat = temp_cat[temp_cat['date'] >= earliest_date]
@@ -484,32 +435,15 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
             temp_format_results_filtered = temp_format_results_filtered.sort_values('date')
 
             # Group by 'month_year', 'item_id', 'id' and get first() and last() 'balance'
-            if account_id == 0:
-                temp_format_results_filtered = temp_format_results_filtered.groupby(
-                    ['date', 'start_of_month', 'month_year_date']).agg(
-                    balance=('balance', 'sum'),
-                    amount_in=('amount_in', 'sum'),
-                    amount_out=('amount_out', 'sum'),
-                ).reset_index()
-                temp_format_results_filtered = temp_format_results_filtered.sort_values('start_of_month')
-                temp_agg_results = temp_format_results_filtered.groupby(['month_year_date']).agg(
-                    balance_start_of_month=('balance', 'first'),
-                    balance_end_of_month=('balance', 'last'),
-                    start_of_month=('start_of_month', 'first'),
-                    amount_in=('amount_in', 'sum'),
-                    amount_out=('amount_out', 'sum'),
-                ).reset_index()
-                # temp_agg_results['account_id'] = None
-                # temp_agg_results['item_id'] = None
-            else:
-                temp_agg_results = temp_format_results_filtered.groupby(
-                    ['month_year_date', 'item_id', 'account_id']).agg(
-                    balance_start_of_month=('balance', 'first'),
-                    balance_end_of_month=('balance', 'last'),
-                    start_of_month=('start_of_month', 'first'),
-                    amount_in=('amount_in', 'sum'),
-                    amount_out=('amount_out', 'sum'),
-                ).reset_index()
+
+            temp_agg_results = temp_format_results_filtered.groupby(
+                ['month_year_date', 'item_id', 'account_id']).agg(
+                balance_start_of_month=('balance', 'first'),
+                balance_end_of_month=('balance', 'last'),
+                start_of_month=('start_of_month', 'first'),
+                amount_in=('amount_in', 'sum'),
+                amount_out=('amount_out', 'sum'),
+            ).reset_index()
 
             # Sort by date
             temp_agg_results = temp_agg_results.sort_values('start_of_month')
@@ -521,11 +455,8 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
             twelve_m_transactions_in = ", ".join(map(str, temp_agg_results['amount_in'].tolist()))
             twelve_m_transactions_out = ", ".join(map(str, temp_agg_results['amount_out'].tolist()))
 
-            if account_id == 0:
-                temp_cat = df_all_transactions
-            else:
-                temp_cat = df_all_transactions[
-                    (df_all_transactions['account_id'] == account_id) & (df_all_transactions['item_id'] == item_id)]
+            temp_cat = df_all_transactions[
+                (df_all_transactions['account_id'] == account_id) & (df_all_transactions['item_id'] == item_id)]
 
             temp_cat['date'] = pd.to_datetime(temp_cat['date'])
             temp_cat = temp_cat[temp_cat['date'] >= earliest_date]
