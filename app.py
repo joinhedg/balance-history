@@ -227,6 +227,8 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
             # 7 days calculations
             earliest_date = current_date - relativedelta(days=7)
             temp_format_results_filtered = temp_format_results[temp_format_results['date'] >= earliest_date]
+            temp_format_results_filtered = temp_format_results_filtered.sort_values('date')
+
             seven_d_dates = ", ".join(map(str, temp_format_results_filtered['date'].dt.strftime('%d/%m/%Y').tolist()))
             seven_d_balance = ", ".join(map(str, temp_format_results_filtered['balance'].tolist()))
             seven_d_transactions_in = ", ".join(map(str, temp_format_results_filtered['amount_in'].tolist()))
@@ -254,6 +256,8 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
             # 30 days calculations
             earliest_date = current_date - relativedelta(days=30)
             temp_format_results_filtered = temp_format_results[temp_format_results['date'] >= earliest_date]
+            temp_format_results_filtered = temp_format_results_filtered.sort_values('date')
+
             thirty_d_dates = ", ".join(map(str, temp_format_results_filtered['date'].dt.strftime('%d/%m/%Y').tolist()))
             thirty_d_balance = ", ".join(map(str, temp_format_results_filtered['balance'].tolist()))
             thirty_d_transactions_in = ", ".join(map(str, temp_format_results_filtered['amount_in'].tolist()))
@@ -303,10 +307,18 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
 
             # Replace English month abbreviations with French ones
             for en, fr in months_en_to_fr.items():
-                temp_format_results_filtered['month_year_date'] = temp_format_results_filtered['month_year_date'].str.replace(en, fr)
+                temp_format_results_filtered['month_year_date'] = temp_format_results_filtered[
+                    'month_year_date'].str.replace(en, fr)
 
             # Group by 'month_year', 'item_id', 'id' and get first() and last() 'balance'
             if account_id == 0:
+                temp_format_results_filtered = temp_format_results_filtered.groupby(
+                    ['date', 'start_of_month', 'month_year_date']).agg(
+                    balance=('balance', 'sum'),
+                    amount_in=('amount_in', 'sum'),
+                    amount_out=('amount_out', 'sum'),
+                ).reset_index()
+                temp_format_results_filtered = temp_format_results_filtered.sort_values('start_of_month')
                 temp_agg_results = temp_format_results_filtered.groupby(['month_year_date']).agg(
                     balance_start_of_month=('balance', 'first'),
                     balance_end_of_month=('balance', 'last'),
@@ -314,10 +326,10 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
                     amount_in=('amount_in', 'sum'),
                     amount_out=('amount_out', 'sum'),
                 ).reset_index()
-                # temp_agg_results['account_id'] = None
-                # temp_agg_results['item_id'] = None
+
             else:
-                temp_agg_results = temp_format_results_filtered.groupby(['month_year_date', 'item_id', 'account_id']).agg(
+                temp_agg_results = temp_format_results_filtered.groupby(
+                    ['month_year_date', 'item_id', 'account_id']).agg(
                     balance_start_of_month=('balance', 'first'),
                     balance_end_of_month=('balance', 'last'),
                     start_of_month=('start_of_month', 'first'),
@@ -387,6 +399,13 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
 
             # Group by 'month_year', 'item_id', 'id' and get first() and last() 'balance'
             if account_id == 0:
+                temp_format_results_filtered = temp_format_results_filtered.groupby(
+                    ['date', 'start_of_month', 'month_year_date']).agg(
+                    balance=('balance', 'sum'),
+                    amount_in=('amount_in', 'sum'),
+                    amount_out=('amount_out', 'sum'),
+                ).reset_index()
+                temp_format_results_filtered = temp_format_results_filtered.sort_values('start_of_month')
                 temp_agg_results = temp_format_results_filtered.groupby(['month_year_date']).agg(
                     balance_start_of_month=('balance', 'first'),
                     balance_end_of_month=('balance', 'last'),
@@ -394,10 +413,9 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
                     amount_in=('amount_in', 'sum'),
                     amount_out=('amount_out', 'sum'),
                 ).reset_index()
-                # temp_agg_results['account_id'] = None
-                # temp_agg_results['item_id'] = None
             else:
-                temp_agg_results = temp_format_results_filtered.groupby(['month_year_date', 'item_id', 'account_id']).agg(
+                temp_agg_results = temp_format_results_filtered.groupby(
+                    ['month_year_date', 'item_id', 'account_id']).agg(
                     balance_start_of_month=('balance', 'first'),
                     balance_end_of_month=('balance', 'last'),
                     start_of_month=('start_of_month', 'first'),
@@ -467,6 +485,13 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
 
             # Group by 'month_year', 'item_id', 'id' and get first() and last() 'balance'
             if account_id == 0:
+                temp_format_results_filtered = temp_format_results_filtered.groupby(
+                    ['date', 'start_of_month', 'month_year_date']).agg(
+                    balance=('balance', 'sum'),
+                    amount_in=('amount_in', 'sum'),
+                    amount_out=('amount_out', 'sum'),
+                ).reset_index()
+                temp_format_results_filtered = temp_format_results_filtered.sort_values('start_of_month')
                 temp_agg_results = temp_format_results_filtered.groupby(['month_year_date']).agg(
                     balance_start_of_month=('balance', 'first'),
                     balance_end_of_month=('balance', 'last'),
@@ -477,7 +502,8 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
                 # temp_agg_results['account_id'] = None
                 # temp_agg_results['item_id'] = None
             else:
-                temp_agg_results = temp_format_results_filtered.groupby(['month_year_date', 'item_id', 'account_id']).agg(
+                temp_agg_results = temp_format_results_filtered.groupby(
+                    ['month_year_date', 'item_id', 'account_id']).agg(
                     balance_start_of_month=('balance', 'first'),
                     balance_end_of_month=('balance', 'last'),
                     start_of_month=('start_of_month', 'first'),
@@ -570,8 +596,8 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
         formatted_output_body = ""
         for formatted in df_formatted:
             formatted_output_body += json.dumps(formatted) + '\n'
-        response_account = bulk_export_to_bubble("bridge_account_history_formatted", envr=env,
-                                                 body=formatted_output_body)
+        response_formated = bulk_export_to_bubble("bridge_account_history_formatted", envr=env,
+                                                  body=formatted_output_body)
 
         results.rename(columns={'account_id': 'id'}, inplace=True)
         results['date'] = results['date'].dt.strftime('%Y-%m-%dT%H:%M:%S.000Z')
@@ -612,7 +638,7 @@ def trigger_balance_history_calc():
     else:
         test = True
 
-    print("Start of calculation for ", item_id, ", test is ", test, ", type is ", type(test))
+    print("Start of calculation for ", item_id, ", test is ", test)
 
     result = history_calculation(
         item_id=item_id,
@@ -625,12 +651,12 @@ def trigger_balance_history_calc():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+    # app.run(host='0.0.0.0', port=8080)
 
-    # env = load_credentials(True)
-    # history_calculation(
-    #     user_uuid=env['user_uuid'],
-    #     item_id=int(env['item_id']),
-    #     bridge_token=env['bridge_auth_token'],
-    #     test=True
-    # )
+    env = load_credentials(True)
+    history_calculation(
+        user_uuid=env['user_uuid'],
+        item_id=int(env['item_id']),
+        bridge_token=env['bridge_auth_token'],
+        test=True
+    )
