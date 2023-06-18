@@ -92,19 +92,19 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
             inplace=True)
 
         # prepare data for bubble formatting
-        format_df_all_transactions_daily_cat = df_all_transactions_export.groupby(
+        format_df_all_transactions_daily = df_all_transactions_export.groupby(
             ['date', 'account_id', 'item_id']).agg(
             amount_in=('amount_in', 'sum'),
             amount_out=('amount_out', 'sum')
         ).reset_index()
-        format_df_all_transactions_daily_cat['date'] = format_df_all_transactions_daily_cat['date'].dt.tz_convert('UTC')
+        format_df_all_transactions_daily['date'] = format_df_all_transactions_daily['date'].dt.tz_convert('UTC')
 
-        format_df_all_transactions_daily_cat = df_all_transactions_export.groupby(
+        format_df_all_transactions_daily = df_all_transactions_export.groupby(
             ['date', 'account_id', 'item_id']).agg(
             amount_in=('amount_in', 'sum'),
             amount_out=('amount_out', 'sum')
         ).reset_index()
-        format_df_all_transactions_daily_cat['date'] = format_df_all_transactions_daily_cat['date'].dt.tz_convert('UTC')
+        format_df_all_transactions_daily['date'] = format_df_all_transactions_daily['date'].dt.tz_convert('UTC')
 
         # prepare data before export
         df_all_transactions_export['date'] = df_all_transactions_export['date'].dt.tz_convert('UTC')
@@ -206,19 +206,33 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
     ], inplace=True)
 
     if results.empty is False:
-        format_result = results.merge(format_df_all_transactions_daily_cat, how='left',
+        format_result = results.merge(format_df_all_transactions_daily, how='left',
                                       on=['date', 'account_id', 'item_id'])
         format_result.fillna(0, inplace=True)
 
         df_formatted = pd.DataFrame()
 
         # Get current date
-        current_date = datetime.datetime.now(pytz.timezone("Europe/Paris"))
+        current_date = datetime.datetime.now(pytz.timezone("UTC"))
 
         for account_id, item_id in zip(list_of_account_id, list_of_item_id):
 
             temp_format_results = format_result[format_result['account_id'] == account_id]
             temp_format_results = temp_format_results[temp_format_results['item_id'] == item_id]
+
+            all_dates_start = (max(temp_format_results['date']) - relativedelta(months=14))
+            all_dates_end = max(temp_format_results['date'])
+            all_dates = pd.date_range(start=all_dates_start,
+                                      end=all_dates_end, freq='D', tz='UTC')
+            df_all_dates = pd.DataFrame(all_dates, columns=['date'])
+            df_all_dates['account_id'] = account_id
+            df_all_dates['item_id'] = item_id
+
+            temp_format_results = df_all_dates.merge(temp_format_results, how='left',
+                                                     on=['date', 'account_id', 'item_id'])
+
+            temp_format_results[['balance', 'amount_in', 'amount_out']] = temp_format_results[['balance', 'amount_in', 'amount_out']].fillna(0)
+            temp_format_results['start_of_month'] = temp_format_results['date'].apply(lambda dt: dt.replace(day=1))
 
             # 7 days calculations
             earliest_date = current_date - relativedelta(days=7)
