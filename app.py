@@ -221,9 +221,16 @@ def history_calculation(item_id, user_uuid, bridge_token, test):
             temp_format_results = temp_format_results[temp_format_results['item_id'] == item_id]
 
             all_dates_start = (max(temp_format_results['date']) - relativedelta(months=14))
+            all_dates_start = all_dates_start.astimezone(pytz.timezone('Europe/Paris'))
+
             all_dates_end = max(temp_format_results['date'])
+            all_dates_end = all_dates_end.astimezone(pytz.timezone('Europe/Paris'))
+
             all_dates = pd.date_range(start=all_dates_start,
-                                      end=all_dates_end, freq='D', tz='UTC')
+                                      end=all_dates_end, freq='D',
+                                      tz='Europe/Paris')
+            all_dates = all_dates.tz_convert('UTC')
+
             df_all_dates = pd.DataFrame(all_dates, columns=['date'])
             df_all_dates['account_id'] = account_id
             df_all_dates['item_id'] = item_id
